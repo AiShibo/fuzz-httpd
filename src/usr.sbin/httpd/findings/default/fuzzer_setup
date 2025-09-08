@@ -1,0 +1,8 @@
+# environment variables:
+AFL_CUSTOM_INFO_PROGRAM=./httpd
+AFL_CUSTOM_INFO_PROGRAM_ARGV=-d -f ./httpd.conf
+AFL_CUSTOM_INFO_OUT=findings/default
+AFL_PATH=/root/AFLplusplus-4.33c
+AFL_USE_ASAN=1
+# command line:
+'afl-fuzz' '-i' 'in' '-o' 'findings' '-g' '4000' '-m' 'none' '--' './httpd' '-d' '-f' './httpd.conf'

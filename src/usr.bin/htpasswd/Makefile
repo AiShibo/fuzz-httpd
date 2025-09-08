@@ -10,7 +10,7 @@ SRCS+=	bcrypt.c \
 	blowfish.c \
 	cryptutil.c
 
-LDADD=		/usr/local/lib/libcrypto.a
+LDADD=		/usr/lib/libcrypto.a
 
 DPADD=		${LIBCRYPTO}
 

@@ -19,8 +19,8 @@ MAN=		httpd.8 httpd.conf.5
 LDADD=		../../../libevent/src/lib/libevent/libevent.a \
 		../../../libimsg/src/lib/libutil/libimsg.a
 LDADD+= 	/usr/local/lib/libtls.a \
-		/usr/local/lib/libssl.a \
-		/usr/local/lib/libcrypto.a
+		/usr/lib/libssl.a \
+		/usr/lib/libcrypto.a
 LDADD+= 	-lcrypt -lprocstat -pthread
 SRCS+=		patterns.c
 MAN+=		patterns.7

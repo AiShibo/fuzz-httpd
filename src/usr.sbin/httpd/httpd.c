@@ -113,6 +113,57 @@ usage(void)
 	exit(1);
 }
 
+
+size_t
+get_payload(uint16_t size, char *buf)
+{
+	ssize_t bytes_read;
+	size_t total_read = 0;
+
+	while (total_read < size) {
+		bytes_read = read(STDIN_FILENO, buf + total_read, size - total_read);
+		if (bytes_read <= 0) {
+			break;
+		}
+		total_read += bytes_read;
+	}
+
+	return total_read;
+}
+
+
+int
+get_metadata(uint8_t* compartment, uint8_t* instance, uint8_t* type, uint16_t* size) 
+{
+	ssize_t bytes_read;
+
+	/* Read compartment (1 byte) */
+	bytes_read = read(STDIN_FILENO, compartment, sizeof(uint8_t));
+	if (bytes_read != sizeof(uint8_t)) {
+		return 1;
+	}
+
+	/* Read instance (1 byte) */
+	bytes_read = read(STDIN_FILENO, instance, sizeof(uint8_t));
+	if (bytes_read != sizeof(uint8_t)) {
+		return 1;
+	}
+
+	/* Read type (1 byte) */
+	bytes_read = read(STDIN_FILENO, type, sizeof(uint8_t));
+	if (bytes_read != sizeof(uint8_t)) {
+		return 1;
+	}
+
+	/* Read size (2 bytes) */
+	bytes_read = read(STDIN_FILENO, size, sizeof(uint16_t));
+	if (bytes_read != sizeof(uint16_t)) {
+		return 1;
+	}
+
+	return 0;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -266,6 +317,72 @@ main(int argc, char *argv[])
 	if (parent_configure(env) == -1)
 		fatalx("configuration failed");
 
+
+
+
+
+
+
+
+	///////
+	
+
+
+	struct imsgbuf server_ibuf;
+	int server_fd = ps->ps_pipes[PROC_SERVER][0].pp_pipes[PROC_PARENT][0];
+	imsg_init(&server_ibuf, server_fd);
+
+	struct imsgbuf logger_ibuf;
+	int logger_fd = ps->ps_pipes[PROC_LOGGER][0].pp_pipes[PROC_PARENT][0];
+	imsg_init(&logger_ibuf, logger_fd);
+
+
+	while(1) {
+		uint8_t compartment; // value is 1, 2
+		uint8_t instance; // reserved, dont use it
+		uint8_t type; // max value 63, smallest value 0, so [0-63]
+		uint16_t size;
+
+		char payload[65535];
+		uint16_t payload_size;
+
+		/* Populate the four fields using get_metadata function */
+		if (get_metadata(&compartment, &instance, &type, &size) != 0) {
+			break;
+		}
+
+		size = size % 8192;
+
+		/* Ensure values are within valid ranges */
+		compartment = (compartment % 2) + 1;  // values 1, 2, 3, 4
+		type = type % 22;  // values 0-63
+
+		/* Populate payload up to size bytes */
+		payload_size = get_payload(size, payload);
+
+		/* Send message to appropriate compartment */
+		struct imsgbuf *target_ibuf = NULL;
+		switch (compartment) {
+			case 1:
+				target_ibuf = &server_ibuf;
+				break;
+			case 2:
+				target_ibuf = &logger_ibuf;
+				break;
+		}
+
+		if (target_ibuf != NULL) {
+			imsg_compose(target_ibuf, type, 0, 0, -1, payload, payload_size);
+			printf("compose! payload size is %lu, and compartment ID is %d\n\n", payload_size, compartment);
+			imsg_flush(target_ibuf);
+		}
+	}
+
+
+
+
+	///////
+
 	event_dispatch();
 
 	parent_shutdown(env);
@@ -418,9 +535,11 @@ parent_dispatch_server(int fd, struct privsep_proc *p, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_CFG_DONE:
+		printf("parent_dispatch_server: IMSG_CFG_DONE\n");
 		parent_configure_done(env);
 		break;
 	default:
+		printf("parent_dispatch_server: unknown message type %d\n", imsg->hdr.type);
 		return (-1);
 	}
 
@@ -437,30 +556,37 @@ parent_dispatch_logger(int fd, struct privsep_proc *p, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_RESET:
+		printf("parent_dispatch_logger: IMSG_CTL_RESET\n");
 		IMSG_SIZE_CHECK(imsg, &v);
 		memcpy(&v, imsg->data, sizeof(v));
 		parent_reload(env, v, NULL);
 		break;
 	case IMSG_CTL_RELOAD:
+		printf("parent_dispatch_logger: IMSG_CTL_RELOAD\n");
 		if (IMSG_DATA_SIZE(imsg) > 0)
 			str = get_string(imsg->data, IMSG_DATA_SIZE(imsg));
 		parent_reload(env, CONFIG_RELOAD, str);
 		free(str);
 		break;
 	case IMSG_CTL_SHUTDOWN:
+		printf("parent_dispatch_logger: IMSG_CTL_SHUTDOWN\n");
 		parent_shutdown(env);
 		break;
 	case IMSG_CTL_REOPEN:
+		printf("parent_dispatch_logger: IMSG_CTL_REOPEN\n");
 		parent_reopen(env);
 		break;
 	case IMSG_CFG_DONE:
+		printf("parent_dispatch_logger: IMSG_CFG_DONE\n");
 		parent_configure_done(env);
 		break;
 	case IMSG_LOG_OPEN:
+		printf("parent_dispatch_logger: IMSG_LOG_OPEN\n");
 		if (logger_open_priv(imsg) == -1)
 			fatalx("failed to open log file");
 		break;
 	default:
+		printf("parent_dispatch_logger: unknown message type %d\n", imsg->hdr.type);
 		return (-1);
 	}
 
