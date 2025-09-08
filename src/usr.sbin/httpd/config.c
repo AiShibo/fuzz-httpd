@@ -205,15 +205,6 @@ config_setserver(struct httpd *env, struct server *srv)
 					fd = -1;
 				else if ((fd = dup(srv->srv_s)) == -1)
 					return (-1);
-				/*1
-				if (proc_composev_imsg(ps, id, n,
-				    IMSG_CFG_SERVER, -1, fd, iov, c) != 0) {
-					log_warn("%s: failed to compose "
-					    "IMSG_CFG_SERVER imsg for `%s'",
-					    __func__, srv->srv_conf.name);
-					return (-1);
-				}
-				*/
 
 				if (proc_composev_imsg(ps, id, n,
 				    IMSG_CFG_SERVER, -1, -1, iov, c) != 0) {

@@ -229,16 +229,6 @@ proc_init(struct privsep *ps, struct privsep_proc *procs, unsigned int nproc,
 					fatal("%s: socketpair", __func__);
 
 				pa->pp_pipes[dst][proc] = fds[0];
-				printf("server side of fd is %d\n", fds[1]);
-				
-				/*
-				printf("setting fd %d to non-blocking\n", fds[0]);
-				if (fcntl(fds[0], F_SETFL, O_NONBLOCK) == -1)
-					fatal("%s: fcntl fds[0]", __func__);
-				printf("setting fd %d to non-blocking\n", fds[1]);
-				if (fcntl(fds[1], F_SETFL, O_NONBLOCK) == -1)
-					fatal("%s: fcntl fds[1]", __func__);
-					*/
 				
 				pb->pp_pipes[PROC_PARENT][0] = fds[1];
 			}
@@ -271,9 +261,6 @@ proc_accept(struct privsep *ps, int fd, enum privsep_procid dst,
 {
 	struct privsep_pipes	*pp = ps->ps_pp;
 	struct imsgev		*iev;
-
-	if (dst > 2 || n != 0)
-		exit(-1);
 
 	if (ps->ps_ievs[dst] == NULL) {
 #if DEBUG > 1
