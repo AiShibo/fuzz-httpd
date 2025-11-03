@@ -166,11 +166,16 @@ logger_open_priv(struct imsg *imsg)
 	size_t			 len;
 	int			 fd;
 
+	// memset(name, 0, sizeof(name));
+	memset(path, 0, sizeof(path));
 	/* called from the privileged process */
 	IMSG_SIZE_CHECK(imsg, &id);
+	if (IMSG_DATA_SIZE(imsg) == sizeof(id))
+		exit(-1);
 	memcpy(&id, imsg->data, sizeof(id));
 	p = (char *)imsg->data + sizeof(id);
 
+	p[IMSG_DATA_SIZE(imsg) - sizeof(id) - 1] = '\0';
 	if ((size_t)snprintf(name, sizeof(name), "/%s", p) >= sizeof(name))
 		return (-1);
 	if ((len = strlcpy(path, httpd_env->sc_logdir, sizeof(path)))

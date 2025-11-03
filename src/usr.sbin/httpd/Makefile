@@ -16,18 +16,24 @@ SRCS+=	bcrypt.c \
 
 MAN=		httpd.8 httpd.conf.5
 
-LDADD=		../../../libevent/src/lib/libevent/libevent.a \
-		../../../libimsg/src/lib/libutil/libimsg.a
+LDFLAGS+=	-L/home/share/fuzz-httpd/libimsg/src/lib/libutil -Wl,-rpath,/home/share/fuzz-httpd/libimsg/src/lib/libutil
+
+LDADD=     /home/share/ptr_checker/libptr_check.so
+LDADD+=		../../../libevent/src/lib/libevent/libevent.a \
+		../../../libimsg/src/lib/libutil/libimsg.so
 LDADD+= 	/usr/local/lib/libtls.a \
 		/usr/lib/libssl.a \
 		/usr/lib/libcrypto.a
-LDADD+= 	-lcrypt -lprocstat -pthread
+LDADD+= 	-lcrypt -lprocstat -pthread -lmd
 SRCS+=		patterns.c
 MAN+=		patterns.7
 
 DPADD=		${LIBTLS} ${LIBSSL} ${LIBCRYPTO}
-#DEBUG=		-g -DDEBUG=3 -O0
+DEBUG=		-g -DDEBUG=3 -O0
 CFLAGS+=	-Wall -I${.CURDIR}
+CFLAGS+=	--coverage
+# CFLAGS+=	-fsanitize=memory
+CFLAGS+=	-fsanitize-recover=memory
 CFLAGS+=	-Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=	-Wmissing-declarations
 CFLAGS+=	-Wshadow -Wpointer-arith
@@ -38,6 +44,8 @@ CFLAGS+=	-I${.CURDIR}/../../../libevent/src/lib/libevent \
 		-I${LOCALBASE}/include
 CFLAGS+=	-D__dead='' \
 		-DHAVE_CONFIG_H
+CFLAGS+=	-g -DDEBUG=3 -O0
+# CFLAGS+=	-fsanitize=memory -fsanitize-recover=memory
 CLEANFILES+=	y.tab.h
 YFLAGS=
 

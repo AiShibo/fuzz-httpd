@@ -1516,6 +1516,7 @@ lookup(char *s)
 
 static int	expanding;
 
+__attribute__((no_sanitize("memory")))
 int
 igetc(void)
 {
@@ -1900,6 +1901,7 @@ load_config(const char *filename, struct httpd *x_conf)
 	struct media_type	 m;
 	int			 i;
 
+	memset(&m, 0, sizeof(m));
 	conf = x_conf;
 	conf->sc_flags = 0;
 

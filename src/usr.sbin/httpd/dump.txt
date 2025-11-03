@@ -1,0 +1,6 @@
+compose! payload size is 0, and compartment ID is 1
+
+compose! payload size is 2, and compartment ID is 1
+
+composing eom!
+parent_dispatch_server: unknown message type 4

@@ -49,6 +49,8 @@
 
 __dead void	 usage(void);
 
+void ptr_check_skip(const void *data, size_t size);
+void check_pointers(const void *data, size_t size);
 int		 parent_configure(struct httpd *);
 void		 parent_configure_done(struct httpd *);
 void		 parent_reload(struct httpd *, unsigned int, const char *);
@@ -70,6 +72,8 @@ static struct privsep_proc procs[] = {
 };
 
 enum privsep_procid privsep_process;
+
+int eom_flag = 0;
 
 void
 parent_sig_handler(int sig, short event, void *arg)
@@ -356,6 +360,10 @@ main(int argc, char *argv[])
 		/* Ensure values are within valid ranges */
 		compartment = (compartment % 2) + 1;  // values 1, 2, 3, 4
 		type = type % 22;  // values 0-63
+		
+		// Temp
+		// type = 17;
+		// compartment = 1;
 
 		/* Populate payload up to size bytes */
 		payload_size = get_payload(size, payload);
@@ -372,11 +380,18 @@ main(int argc, char *argv[])
 		}
 
 		if (target_ibuf != NULL) {
+			printf("compose! payload size is %lu, and compartment ID is %d, type is %d\n", payload_size, compartment, type);
+			ptr_check_skip(payload, payload_size);
+			// check_pointers(payload, payload_size);
 			imsg_compose(target_ibuf, type, 0, 0, -1, payload, payload_size);
-			printf("compose! payload size is %lu, and compartment ID is %d\n\n", payload_size, compartment);
 			imsg_flush(target_ibuf);
 		}
 	}
+	
+	imsg_compose(&server_ibuf, IMSG_EOM, 0, 0, -1, NULL, 0);
+	imsg_compose(&logger_ibuf, IMSG_EOM, 0, 0, -1, NULL, 0);
+	imsg_flush(&server_ibuf);
+	imsg_flush(&logger_ibuf);
 
 
 
@@ -401,6 +416,7 @@ parent_configure(struct httpd *env)
 	struct media_type	*media;
 	struct auth		*auth;
 
+	memset(&cf, 0, sizeof(cf));
 	RB_FOREACH(media, mediatypes, env->sc_mediatypes) {
 		if (config_setmedia(env, media) == -1)
 			fatal("send media");
@@ -532,12 +548,20 @@ parent_dispatch_server(int fd, struct privsep_proc *p, struct imsg *imsg)
 {
 	struct privsep		*ps = p->p_ps;
 	struct httpd		*env = ps->ps_env;
+	int aaa;
 
 	switch (imsg->hdr.type) {
 	case IMSG_CFG_DONE:
-		printf("parent_dispatch_server: IMSG_CFG_DONE\n");
 		parent_configure_done(env);
 		break;
+	case IMSG_EOM:
+		printf("EOM received, eom_flag is %d\n", eom_flag);
+		if (eom_flag == 1)
+			exit(1);
+		else
+			eom_flag = 1;
+		break;
+
 	default:
 		printf("parent_dispatch_server: unknown message type %d\n", imsg->hdr.type);
 		return (-1);
@@ -584,6 +608,13 @@ parent_dispatch_logger(int fd, struct privsep_proc *p, struct imsg *imsg)
 		printf("parent_dispatch_logger: IMSG_LOG_OPEN\n");
 		if (logger_open_priv(imsg) == -1)
 			fatalx("failed to open log file");
+		break;
+	case IMSG_EOM:
+		printf("EOM received, eom_flag is %d\n", eom_flag);
+		if (eom_flag == 1)
+			exit(1);
+		else
+			eom_flag = 1;
 		break;
 	default:
 		printf("parent_dispatch_logger: unknown message type %d\n", imsg->hdr.type);

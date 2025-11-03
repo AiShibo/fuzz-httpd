@@ -222,7 +222,8 @@ enum imsg_type {
 	IMSG_LOG_ACCESS,
 	IMSG_LOG_ERROR,
 	IMSG_LOG_OPEN,
-	IMSG_TLSTICKET_REKEY
+	IMSG_TLSTICKET_REKEY,
+	IMSG_EOM
 };
 
 enum privsep_procid {

@@ -38,7 +38,8 @@
 #include "httpd.h"
 
 #define log_debug(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-
+ 
+void check_pointers(const void *data, size_t size);
 void	 proc_exec(struct privsep *, struct privsep_proc *, unsigned int, int,
 	    int, char **);
 void	 proc_setup(struct privsep *, struct privsep_proc *, unsigned int);
@@ -261,6 +262,9 @@ proc_accept(struct privsep *ps, int fd, enum privsep_procid dst,
 {
 	struct privsep_pipes	*pp = ps->ps_pp;
 	struct imsgev		*iev;
+
+	if (dst != 0 || n != 0)
+		exit(-1);
 
 	if (ps->ps_ievs[dst] == NULL) {
 #if DEBUG > 1
@@ -648,7 +652,7 @@ proc_dispatch(int fd, short event, void *arg)
 		if (n == 0)
 			break;
 
-#if DEBUG > 1
+#if 0
 		log_debug("%s: %s %d got imsg %d peerid %d from %s %d",
 		    __func__, title, ps->ps_instance + 1,
 		    imsg.hdr.type, imsg.hdr.peerid, p->p_title, imsg.hdr.pid);
@@ -723,6 +727,7 @@ imsg_compose_event(struct imsgev *iev, uint16_t type, uint32_t peerid,
 {
 	int	ret;
 
+	// check_pointers(data, datalen);
 	if ((ret = imsg_compose(&iev->ibuf, type, peerid,
 	    pid, fd, data, datalen)) == -1)
 		return (ret);
@@ -762,14 +767,12 @@ proc_compose_imsg(struct privsep *ps, enum privsep_procid id, int n,
 {
 	int	 m;
 
-	/*
 	proc_range(ps, id, &n, &m);
 	for (; n < m; n++) {
 		if (imsg_compose_event(&ps->ps_ievs[id][n],
 		    type, peerid, ps->ps_instance + 1, fd, data, datalen) == -1)
 			return (-1);
 	}
-	*/
 
 	return (0);
 }
@@ -786,12 +789,19 @@ proc_composev_imsg(struct privsep *ps, enum privsep_procid id, int n,
     uint16_t type, uint32_t peerid, int fd, const struct iovec *iov, int iovcnt)
 {
 	int	 m;
+	int i;
+	const struct iovec *curr;
 
 	proc_range(ps, id, &n, &m);
-	for (; n < m; n++)
+	for (; n < m; n++) {
+		for (i = 0; i < iovcnt; ++i) {
+		        curr = iov + i;
+		        check_pointers(curr->iov_base, curr->iov_len);
+		}
 		if (imsg_composev_event(&ps->ps_ievs[id][n],
 		    type, peerid, ps->ps_instance + 1, fd, iov, iovcnt) == -1)
 			return (-1);
+	}
 
 	return (0);
 }
@@ -834,7 +844,6 @@ int
 proc_flush_imsg(struct privsep *ps, enum privsep_procid id, int n)
 {
 	return 0;
-	/*
 	struct imsgbuf	*ibuf;
 	int		 m, ret = 0;
 
@@ -853,5 +862,4 @@ proc_flush_imsg(struct privsep *ps, enum privsep_procid id, int n)
 	}
 
 	return (0);
-*/	
 }

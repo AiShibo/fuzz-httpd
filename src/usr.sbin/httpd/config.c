@@ -158,6 +158,37 @@ config_getcfg(struct httpd *env, struct imsg *imsg)
 	return (0);
 }
 
+
+
+void
+clear_config_server_ptrs(struct server_config *cfg)
+{
+	if (cfg == NULL)
+		return;
+
+	cfg->default_type.media_encoding = NULL;
+	memset(&cfg->default_type.media_entry, 0, sizeof(cfg->default_type.media_entry));
+
+	cfg->tls_ca = NULL;
+	cfg->tls_ca_file = NULL;
+	cfg->tls_cert = NULL;
+	cfg->tls_cert_file = NULL;
+	cfg->tls_crl = NULL;
+	cfg->tls_crl_file = NULL;
+	cfg->tls_key = NULL;
+	cfg->tls_key_file = NULL;
+	cfg->tls_ocsp_staple = NULL;
+	cfg->tls_ocsp_staple_file = NULL;
+
+	cfg->logaccess = NULL;
+	cfg->logerror = NULL;
+	cfg->auth = NULL;
+	cfg->return_uri = NULL;
+
+	memset(&cfg->fcgiparams, 0, sizeof(cfg->fcgiparams));
+	memset(&cfg->entry, 0, sizeof(cfg->entry));
+}
+
 int
 config_setserver(struct httpd *env, struct server *srv)
 {
@@ -206,6 +237,8 @@ config_setserver(struct httpd *env, struct server *srv)
 				else if ((fd = dup(srv->srv_s)) == -1)
 					return (-1);
 
+
+				clear_config_server_ptrs(&s);
 				if (proc_composev_imsg(ps, id, n,
 				    IMSG_CFG_SERVER, -1, -1, iov, c) != 0) {
 					log_warn("%s: failed to compose "
@@ -226,6 +259,7 @@ config_setserver(struct httpd *env, struct server *srv)
 			/* Configure TLS if necessary. */
 			config_setserver_tls(env, srv);
 		} else {
+			clear_config_server_ptrs(&s);
 			if (proc_composev(ps, id, IMSG_CFG_SERVER,
 			    iov, c) != 0) {
 				log_warn("%s: failed to compose "
@@ -829,6 +863,7 @@ config_setmedia(struct httpd *env, struct media_type *media)
 		DPRINTF("%s: sending media \"%s\" to %s", __func__,
 		    media->media_name, ps->ps_title[id]);
 
+		memset(&(media->media_entry), 0, sizeof(media->media_entry));
 		proc_compose(ps, id, IMSG_CFG_MEDIA, media, sizeof(*media));
 	}
 
@@ -866,6 +901,7 @@ config_setauth(struct httpd *env, struct auth *auth)
 	struct privsep		*ps = env->sc_ps;
 	int			 id;
 	unsigned int		 what;
+	struct auth myauth;
 
 	for (id = 0; id < PROC_MAX; id++) {
 		what = ps->ps_what[id];
@@ -876,7 +912,9 @@ config_setauth(struct httpd *env, struct auth *auth)
 		DPRINTF("%s: sending auth \"%s[%u]\" to %s", __func__,
 		    auth->auth_htpasswd, auth->auth_id, ps->ps_title[id]);
 
-		proc_compose(ps, id, IMSG_CFG_AUTH, auth, sizeof(*auth));
+		memcpy(&myauth, auth, sizeof(struct auth));
+		memset(&myauth.auth_entry, 0, sizeof(myauth.auth_entry));
+		proc_compose(ps, id, IMSG_CFG_AUTH, &myauth, sizeof(*auth));
 	}
 
 	return (0);
